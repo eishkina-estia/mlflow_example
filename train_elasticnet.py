@@ -1,51 +1,25 @@
-import warnings
-warnings.filterwarnings("ignore")
-
 import pandas as pd
 import numpy as np
-
-from sklearn.model_selection import train_test_split
 from sklearn.linear_model import ElasticNet
-from sklearn.metrics import mean_squared_error
 
-import mlflow
+import mlflow, pickle
 
 import common as common
 
-DATA_PATH = common.CONFIG['paths']['data']
+DATA_PROC_PATH = common.CONFIG['paths']['data_processed']
 DIR_MLRUNS = common.CONFIG['paths']['mlruns']
 
-TARGET = common.CONFIG['ml']['target_name']
 RANDOM_STATE = common.CONFIG['ml']['random_state']
 
 EXPERIMENT_NAME = common.CONFIG['mlflow']['experiment_name']
 MODEL_NAME = common.CONFIG['mlflow']['model_name']
-MODEL_VERSION = common.CONFIG['mlflow']['model_version']
+ARTIFACT_PATH = common.CONFIG['mlflow']['artifact_path']
 
 def load_data():
 
-    print("Loading wine dataset")
-    data = pd.read_csv(DATA_PATH)
-    print(f"{len(data)} objects loaded")
-
-    return data
-
-def preprocess_data(data):
-
-    print("Preprocessing data")
-
-    # Separate features and target
-    X = data.drop(columns=[TARGET])
-    y = data[TARGET]
-
-    # Split the data into training and test sets. (0.75, 0.25) split.
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=RANDOM_STATE)
-    print(f"{len(X_train)} objects in train set, {len(X_test)} objects in test set")
-
-    # do some preprocessing if needed
-
+    with open(DATA_PROC_PATH, "rb") as file:
+        X_train, X_test, y_train, y_test = pickle.load(file)
     return X_train, X_test, y_train, y_test
-
 
 def train_and_log_model(model, X_train, X_test, y_train, y_test):
 
@@ -59,7 +33,7 @@ def train_and_log_model(model, X_train, X_test, y_train, y_test):
     # Log model
     model_info = mlflow.sklearn.log_model(
         sk_model=model,
-        artifact_path="sklearn-model",
+        artifact_path=ARTIFACT_PATH,
         signature=signature)
 
     # Log model params
@@ -69,7 +43,7 @@ def train_and_log_model(model, X_train, X_test, y_train, y_test):
     results = mlflow.evaluate(
         model_info.model_uri,
         data=pd.concat([X_test,y_test], axis=1),
-        targets=TARGET,
+        targets=y_test.name,
         model_type="regressor",
         evaluators=["default"]
     )
@@ -80,13 +54,8 @@ if __name__ == "__main__":
     # Using MLflow Tracking locally: everything will be stored in DIR_MLRUNS folder
     mlflow.set_tracking_uri("file:" + DIR_MLRUNS)
 
-    # for reproducibility reasons
-    np.random.seed(RANDOM_STATE)
-
-    # load data from csv file
-    data = load_data()
-    # preprocess data
-    X_train, X_test, y_train, y_test = preprocess_data(data)
+    # load preprocessed data
+    X_train, X_test, y_train, y_test = load_data()
 
     # set mlflow experiment
     exp_name = "wine_quality_prediction"
@@ -126,19 +95,11 @@ if __name__ == "__main__":
                     print(f"rmse: {results.metrics['root_mean_squared_error']}")
                     print(f"r2: {results.metrics['r2_score']}")
 
-    # Register the best model in the model registry
-    model_uri = f"runs:/{best_run_id}/sklearn-model"
+    print("#" * 20)
+    # Register the baseline in the model registry
+    model_uri = f"runs:/{best_run_id}/{ARTIFACT_PATH}"
     mv = mlflow.register_model(model_uri, MODEL_NAME)
     print("Model saved to the model registry:")
     print(f"Name: {mv.name}")
     print(f"Version: {mv.version}")
     print(f"Source: {mv.source}")
-
-    # This is to show how to load models from the mlflow model registry
-    print("#"*20)
-    print("Load model from the model registry")
-    model_uri = f"models:/{MODEL_NAME}/{MODEL_VERSION}"
-    print(f"Model URI: {model_uri}")
-    model = mlflow.pyfunc.load_model(model_uri=model_uri)
-    y_pred = model.predict(X_test)
-    print(f"RMSE for test data = {mean_squared_error(y_test, y_pred, squared=False)}")
