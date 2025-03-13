@@ -1,34 +1,41 @@
-# Example MLflow project
+# Simple MLflow project
 
-This project demonstrates how to use MLflow to track experiments, register models, and load models from the model registry. The data used in this repo comes from [ics.uci.edu](http://archive.ics.uci.edu/ml/datasets/Wine+Quality)
+This project demonstrates an end-to-end workflow using MLflow to track experiments, save models, and retrieve them via the MLflow API. The workflow consists of data preprocessing, training an ElasticNet model, and loading the trained model for testing.
 
-## Files
+The data used in this repo comes from [ics.uci.edu](http://archive.ics.uci.edu/ml/datasets/Wine+Quality)
+
+## Project Structure
 
 - `data/wine_quality.csv`: wine quality dataset
 - `config.yml`: configuration file (MLflow backend path, data path, etc.)
 - `common.py`: script for getting the processed config constants
-- `preprocess_data.py`: script for data preprocessing and saving its results: (X_train, X_test, y_train, y_test)
+- `preprocess_data.py`: script for data preprocessing and saving its results into a pickle file: (X_train, X_test, y_train, y_test)
 - `train_elasticnet.py`: script for model training and logging experiments conducted using ElasticNet algorithm 
 - `test_model_load.py`: script for loading latest model from mlflow
-- `requirements.txt`: package requirements file
+- `requirements.txt`: package requirements file (list of dependencies)
 
 
 ## Run Demo Locally
 
-### Preprocess data and save the results to `data/` folder
+### Preprocess data
 ```shell
 $ python preprocess_data.py
 ```
-### Register mlflow runs corresponding to the use of ElasticNet algorithm
+Paths are configured in `config.yml`. Results are saved to `data/` folder accordingly to `config.yml`.
+
+### Model Training & Logging
+Train an ElasticNet model and track experiments in MLflow:
 ```shell
 $ python train_elasticnet.py
 $ mlflow ui
 ```
+This script logs metrics, parameters, and the trained model in MLflow.
 Open http://localhost:5000 to view the mlflow UI.
 
 ![Alt text](img/mlflow_experiments_table.png "MLflow experiments table")
 
-### Load the latest model from mlflow backend
+### Load the model from mlflow backend
+Retrieve the trained model using MLflow API:
 ```shell
 $ python test_model_load.py
 ```
